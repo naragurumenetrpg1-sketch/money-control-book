@@ -191,7 +191,7 @@ body {
 .kb-cal-cell.today { outline: 2px solid var(--gold); outline-offset: -2px; }
 .kb-cal-cell.selected { background: #fff; box-shadow: 0 0 0 2px var(--stamp-red) inset; }
 .kb-cal-daynum { font-size: 11px; color: var(--ink-soft); flex-shrink: 0; }
-.kb-cal-total { font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--stamp-red-dark); margin-top: 2px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+.kb-cal-total { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; color: var(--stamp-red-dark); margin-top: 2px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; letter-spacing: -0.02em; }
 .kb-cal-total.income { color: var(--income-green-dark); }
 .kb-cal-dots { display: flex; gap: 2px; position: absolute; bottom: 4px; left: 4px; }
 .kb-cal-dot { width: 5px; height: 5px; border-radius: 50%; }
@@ -316,6 +316,15 @@ function parseKey(k) { const [y, m, d] = k.split("-").map(Number); return new Da
 function displayDate(d) { return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${WEEKDAYS[d.getDay()]})`; }
 function monthLabel(d) { return `${d.getFullYear()}年${d.getMonth() + 1}月`; }
 function yen(n) { return `¥${Number(n || 0).toLocaleString("ja-JP")}`; }
+function yenCompact(n) {
+  const v = Number(n || 0);
+  if (v >= 10000) {
+    const man = v / 10000;
+    const rounded = Math.round(man * 10) / 10;
+    return `${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)}万`;
+  }
+  return v.toLocaleString("ja-JP");
+}
 function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
 function monthKey(d) { return d.getFullYear() * 12 + d.getMonth(); }
 function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
@@ -561,8 +570,8 @@ function renderCalendar() {
     return `
       <div class="${cls.join(" ")}" data-day="${k}">
         <div class="kb-cal-daynum">${d.getDate()}</div>
-        ${expenseTotal > 0 ? `<div class="kb-cal-total">-${yen(expenseTotal)}</div>` : ""}
-        ${incomeTotal > 0 ? `<div class="kb-cal-total income">+${yen(incomeTotal)}</div>` : ""}
+        ${expenseTotal > 0 ? `<div class="kb-cal-total">-${yenCompact(expenseTotal)}</div>` : ""}
+        ${incomeTotal > 0 ? `<div class="kb-cal-total income">+${yenCompact(incomeTotal)}</div>` : ""}
         ${cats.length ? `<div class="kb-cal-dots">${cats.map((cat) => `<div class="kb-cal-dot" style="background:${catColor(cat)}"></div>`).join("")}</div>` : ""}
       </div>`;
   }).join("");
