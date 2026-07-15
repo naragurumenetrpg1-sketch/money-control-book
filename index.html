@@ -96,6 +96,11 @@ body {
 }
 .kb-modal-btn.secondary { background: var(--paper); color: var(--ink); border: 1.5px solid var(--paper-line); }
 .kb-modal-close { width: 100%; text-align: center; border: none; background: none; color: var(--ink-soft); font-size: 12px; cursor: pointer; padding: 6px 0; }
+.kb-edit-modal { width: 88%; max-width: 320px; max-height: 82dvh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.kb-edit-modal::-webkit-scrollbar { display: none; }
+.kb-edit-modal .kb-cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.kb-edit-actions { display: flex; gap: 8px; margin-top: 14px; }
+.kb-edit-actions .kb-modal-btn { margin-bottom: 0; flex: 1; }
 
 .kb-body { flex: 1; padding: 14px 20px 72px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none; -ms-overflow-style: none; }
 .kb-body.no-scroll { overflow: hidden; touch-action: none; }
@@ -181,18 +186,18 @@ body {
 .kb-cal-month { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
 .kb-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .kb-cal-wd { text-align: center; font-size: 11px; color: var(--ink-soft); padding-bottom: 6px; }
-.kb-cal-cell { min-height: 52px; border: 1px solid var(--paper-line); border-radius: 6px; background: var(--paper-card); padding: 4px; cursor: pointer; position: relative; }
+.kb-cal-cell { height: 58px; border: 1px solid var(--paper-line); border-radius: 6px; background: var(--paper-card); padding: 4px; cursor: pointer; position: relative; overflow: hidden; display: flex; flex-direction: column; }
 .kb-cal-cell.empty { background: transparent; border: none; cursor: default; }
 .kb-cal-cell.today { outline: 2px solid var(--gold); outline-offset: -2px; }
 .kb-cal-cell.selected { background: #fff; box-shadow: 0 0 0 2px var(--stamp-red) inset; }
-.kb-cal-daynum { font-size: 11px; color: var(--ink-soft); }
-.kb-cal-total { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--stamp-red-dark); margin-top: 2px; line-height: 1.3; }
+.kb-cal-daynum { font-size: 11px; color: var(--ink-soft); flex-shrink: 0; }
+.kb-cal-total { font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--stamp-red-dark); margin-top: 2px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
 .kb-cal-total.income { color: var(--income-green-dark); }
 .kb-cal-dots { display: flex; gap: 2px; position: absolute; bottom: 4px; left: 4px; }
 .kb-cal-dot { width: 5px; height: 5px; border-radius: 50%; }
 
 .kb-day-panel { margin-top: 16px; border-top: 1px dashed var(--paper-line); padding-top: 12px; }
-.kb-day-entry { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--paper-line); font-size: 13px; }
+.kb-day-entry { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--paper-line); font-size: 13px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .kb-day-entry .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .kb-day-entry .memo { flex: 1; color: var(--ink-soft); }
 .kb-day-entry .amt { font-family: var(--font-mono); font-weight: 700; }
@@ -259,6 +264,9 @@ body {
         <input type="file" id="importFile" accept="application/json" style="display:none;">
         <button class="kb-modal-close" id="closeBackup">閉じる</button>
       </div>
+    </div>
+    <div class="kb-modal-backdrop" id="editBackdrop">
+      <div class="kb-modal kb-edit-modal" id="editModalBody"></div>
     </div>
     <div class="kb-body" id="body"></div>
     <div class="kb-tabs-horiz">
@@ -328,6 +336,7 @@ const state = {
   toast: null,
   toastTimer: null,
   input: { date: new Date(), type: "expense", memo: "", amount: "", category: null, addingCat: false, newCatName: "" },
+  editEntry: null,
   calendar: { month: startOfMonth(new Date()), selectedKey: null },
   chart: { period: "1m", refMonth: startOfMonth(new Date()) },
 };
@@ -350,6 +359,41 @@ function addEntry(entry) {
 function deleteEntry(id) {
   state.entries = state.entries.filter((e) => e.id !== id);
   saveJSON("kakeibo_entries", state.entries);
+}
+function openEditEntry(id) {
+  const entry = state.entries.find((e) => e.id === id);
+  if (!entry) return;
+  state.editEntry = { id: entry.id, memo: entry.memo, amount: String(entry.amount), category: entry.category, type: entry.type };
+  render();
+}
+function closeEditEntry() {
+  state.editEntry = null;
+  render();
+}
+function saveEditEntry() {
+  const s = state.editEntry;
+  if (!s) return;
+  const amt = Number(s.amount);
+  if (!amt || amt <= 0 || !s.category) return;
+  const entry = state.entries.find((e) => e.id === s.id);
+  if (entry) {
+    entry.memo = s.memo.trim();
+    entry.amount = amt;
+    entry.category = s.category;
+    entry.type = s.type;
+    saveJSON("kakeibo_entries", state.entries);
+  }
+  state.editEntry = null;
+  render();
+  showToast("更新しました");
+}
+function deleteEditEntry() {
+  const s = state.editEntry;
+  if (!s) return;
+  deleteEntry(s.id);
+  state.editEntry = null;
+  render();
+  showToast("削除しました");
 }
 function addCategory(name) {
   const color = CUSTOM_PALETTE[state.customCategories.length % CUSTOM_PALETTE.length];
@@ -411,6 +455,14 @@ function render() {
     toastEl.textContent = state.toast;
   } else if (toastEl) {
     toastEl.remove();
+  }
+
+  const editBackdrop = document.getElementById("editBackdrop");
+  if (state.editEntry) {
+    editBackdrop.style.display = "flex";
+    document.getElementById("editModalBody").innerHTML = renderEditModal();
+  } else {
+    editBackdrop.style.display = "none";
   }
 
   const body = document.getElementById("body");
@@ -522,7 +574,7 @@ function renderCalendar() {
       <div class="kb-day-panel">
         <div class="kb-label">${displayDate(parseKey(c.selectedKey))}の記録</div>
         ${dayEntries.length === 0 ? `<div class="kb-empty" style="padding:20px 0;">記録がありません</div>` : dayEntries.map((e) => `
-          <div class="kb-day-entry">
+          <div class="kb-day-entry" data-entry="${e.id}">
             <div class="cat-dot" style="background:${catColor(e.category)}"></div>
             <div class="memo">${escapeHtml(e.category)}${e.memo ? ` ・ ${escapeHtml(e.memo)}` : ""}</div>
             <div class="amt" style="color:${e.type === "income" ? "var(--income-green-dark)" : "var(--stamp-red-dark)"}">
@@ -612,6 +664,47 @@ function renderChart() {
       <div class="kb-summary-item"><div class="kb-summary-label">差引</div><div class="kb-summary-val">${yen(incomeTotal - total)}</div></div>
     </div>
     ${chartHtml}
+  `;
+}
+
+function renderEditModal() {
+  const s = state.editEntry;
+  if (!s) return "";
+  const canSave = Number(s.amount) > 0 && !!s.category;
+  const chips = categories().map((c) => `
+    <div class="kb-chip${s.category === c.name ? " selected" : ""}" data-editcat="${c.name}"
+         style="${s.category === c.name ? `background:${c.color};border-color:${c.color}` : ""}">
+      ${iconSvg(c.icon)}<span>${c.name}</span>
+    </div>`).join("");
+
+  return `
+    <div class="kb-modal-title">記録を編集</div>
+    <div class="kb-row">
+      <div class="kb-label">メモ(何を買った？)</div>
+      <input class="kb-memo-input" id="editMemoInput" placeholder="例）スーパーで食材" value="${escapeHtml(s.memo)}">
+    </div>
+    <div class="kb-row">
+      <div class="kb-label-row">
+        <div class="kb-label">${s.type === "expense" ? "支出" : "収入"}</div>
+        <div class="kb-mini-toggle">
+          <button class="kb-mini-btn expense${s.type === "expense" ? " active" : ""}" data-edittype="expense">出</button>
+          <button class="kb-mini-btn income${s.type === "income" ? " active" : ""}" data-edittype="income">入</button>
+        </div>
+      </div>
+      <div class="kb-amount-wrap">
+        <span class="kb-yen">¥</span>
+        <input class="kb-amount-input" id="editAmountInput" type="number" inputmode="numeric" placeholder="0" value="${s.amount}">
+      </div>
+    </div>
+    <div class="kb-row">
+      <div class="kb-label">カテゴリー</div>
+      <div class="kb-cat-grid">${chips}</div>
+    </div>
+    <div class="kb-edit-actions">
+      <button class="kb-modal-btn secondary" id="editDeleteBtn" style="color:var(--stamp-red-dark); border-color:var(--stamp-red-dark);">削除</button>
+      <button class="kb-modal-btn" id="editSaveBtn" ${canSave ? "" : "disabled"}>保存</button>
+    </div>
+    <button class="kb-modal-close" id="editCancelBtn">キャンセル</button>
   `;
 }
 
@@ -708,6 +801,51 @@ function bindEvents() {
       render();
     });
     document.querySelectorAll("[data-del]").forEach((el) => el.onclick = (ev) => { ev.stopPropagation(); deleteEntry(el.dataset.del); render(); });
+    document.querySelectorAll("[data-entry]").forEach((el) => {
+      const entryId = el.dataset.entry;
+      let pressTimer = null;
+      let longPressed = false;
+      const startPress = (e) => {
+        if (e.target.closest("button")) return;
+        longPressed = false;
+        pressTimer = setTimeout(() => {
+          longPressed = true;
+          if (navigator.vibrate) navigator.vibrate(30);
+          openEditEntry(entryId);
+        }, 500);
+      };
+      const cancelPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+      el.addEventListener("touchstart", startPress, { passive: true });
+      el.addEventListener("touchend", cancelPress);
+      el.addEventListener("touchmove", cancelPress);
+      el.addEventListener("touchcancel", cancelPress);
+      el.addEventListener("mousedown", startPress);
+      el.addEventListener("mouseup", cancelPress);
+      el.addEventListener("mouseleave", cancelPress);
+      el.onclick = (ev) => { if (longPressed) { ev.stopPropagation(); longPressed = false; } };
+    });
+  }
+
+  if (state.editEntry) {
+    const s = state.editEntry;
+    const editMemoInput = document.getElementById("editMemoInput");
+    if (editMemoInput) editMemoInput.oninput = (e) => { s.memo = e.target.value; };
+    const editAmountInput = document.getElementById("editAmountInput");
+    if (editAmountInput) {
+      editAmountInput.oninput = (e) => {
+        s.amount = e.target.value;
+        const btn = document.getElementById("editSaveBtn");
+        if (btn) btn.disabled = !(Number(s.amount) > 0 && s.category);
+      };
+    }
+    document.querySelectorAll("[data-edittype]").forEach((el) => el.onclick = () => { s.type = el.dataset.edittype; render(); });
+    document.querySelectorAll("[data-editcat]").forEach((el) => el.onclick = () => { s.category = el.dataset.editcat; render(); });
+    const editSaveBtn = document.getElementById("editSaveBtn");
+    if (editSaveBtn) editSaveBtn.onclick = saveEditEntry;
+    const editDeleteBtn = document.getElementById("editDeleteBtn");
+    if (editDeleteBtn) editDeleteBtn.onclick = deleteEditEntry;
+    const editCancelBtn = document.getElementById("editCancelBtn");
+    if (editCancelBtn) editCancelBtn.onclick = closeEditEntry;
   }
 
   if (state.screen === "chart") {
@@ -799,6 +937,11 @@ render();
     reader.readAsText(file);
     e.target.value = "";
   };
+})();
+
+(function setupEditModal() {
+  const backdrop = document.getElementById("editBackdrop");
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeEditEntry(); });
 })();
 
 (function setupSwipe() {
